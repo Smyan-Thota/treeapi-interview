@@ -1,0 +1,41 @@
+const express = require('express');
+const treeController = require('../controllers/treeController');
+
+/**
+ * Tree API Routes
+ * Defines all routes for tree operations as specified in the problem statement
+ */
+const router = express.Router();
+
+/**
+ * GET /api/tree
+ * Returns an array of all trees that exist in the database
+ */
+router.get('/', treeController.getAllTrees);
+
+/**
+ * POST /api/tree
+ * Creates a new node and attaches it to the specified parent node in the tree
+ * Request body: { "label": "string", "parentId": number|null }
+ */
+router.post('/', treeController.createNode);
+
+/**
+ * GET /api/tree/stats
+ * Get service statistics (additional endpoint for monitoring)
+ */
+router.get('/stats', treeController.getStats);
+
+/**
+ * GET /api/tree/node/:id/path
+ * Get the path from root to a specific node (additional endpoint for navigation)
+ */
+router.get('/node/:id/path', treeController.getNodePath);
+
+/**
+ * GET /api/tree/:id
+ * Get a specific tree by root node ID (additional endpoint for flexibility)
+ */
+router.get('/:id', treeController.getTreeById);
+
+module.exports = router;
