@@ -162,6 +162,111 @@ class DatabaseConnection {
     }
 
     /**
+     * Begin a database transaction
+     * @returns {Promise<void>} Promise that resolves when transaction begins
+     */
+    async beginTransaction() {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
+        return new Promise((resolve, reject) => {
+            this.db.run('BEGIN TRANSACTION', (err) => {
+                if (err) {
+                    // SQLite doesn't allow nested transactions, but we can handle this gracefully
+                    if (err.message.includes('transaction within a transaction')) {
+                        console.warn('Attempted to begin nested transaction - ignoring');
+                        resolve();
+                    } else {
+                        console.error('Error beginning transaction:', err.message);
+                        reject(err);
+                    }
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    /**
+     * Commit a database transaction
+     * @returns {Promise<void>} Promise that resolves when transaction commits
+     */
+    async commitTransaction() {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
+        return new Promise((resolve, reject) => {
+            this.db.run('COMMIT', (err) => {
+                if (err) {
+                    // No active transaction is not necessarily an error condition
+                    if (err.message.includes('no transaction is active')) {
+                        console.warn('Attempted to commit without active transaction - ignoring');
+                        resolve();
+                    } else {
+                        console.error('Error committing transaction:', err.message);
+                        reject(err);
+                    }
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    /**
+     * Rollback a database transaction
+     * @returns {Promise<void>} Promise that resolves when transaction rolls back
+     */
+    async rollbackTransaction() {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
+        return new Promise((resolve, reject) => {
+            this.db.run('ROLLBACK', (err) => {
+                if (err) {
+                    // No active transaction is not necessarily an error condition
+                    if (err.message.includes('no transaction is active')) {
+                        console.warn('Attempted to rollback without active transaction - ignoring');
+                        resolve();
+                    } else {
+                        console.error('Error rolling back transaction:', err.message);
+                        reject(err);
+                    }
+                } else {
+                    resolve();
+                }
+            });
+        });
+    }
+
+    /**
+     * Execute multiple SQL statements in a transaction
+     * @param {Array<{sql: string, params: Array}>} statements - Array of SQL statements with parameters
+     * @returns {Promise<Array>} Promise that resolves with array of results
+     */
+    async runInTransaction(statements) {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
+        
+        try {
+            await this.beginTransaction();
+            const results = [];
+            
+            for (const statement of statements) {
+                const result = await this.run(statement.sql, statement.params || []);
+                results.push(result);
+            }
+            
+            await this.commitTransaction();
+            return results;
+        } catch (error) {
+            await this.rollbackTransaction();
+            throw error;
+        }
+    }
+
+    /**
      * Get database instance (for direct access if needed)
      */
     getDatabase() {

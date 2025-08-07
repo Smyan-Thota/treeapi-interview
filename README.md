@@ -6,11 +6,13 @@ A production-ready HTTP server for managing hierarchical tree data structures bu
 
 - 🌳 **Hierarchical Trees**: Create and manage tree structures with unlimited depth
 - 🔄 **REST API**: Clean RESTful endpoints for tree operations
-- 💾 **Persistent Storage**: SQLite database with automatic schema management
+
+- 🔍 **Tree Validation**: Circular reference detection and structure integrity checks
+- 💾 **Persistent Storage**: SQLite database with transaction support and automatic schema management
 - 🧪 **Comprehensive Testing**: Unit and integration tests with coverage reports
 - 📚 **Interactive Documentation**: Swagger UI for API exploration
 - 🔒 **Production Ready**: Error handling, validation, and security middleware
-- ⚡ **Performance Optimized**: Efficient SQL queries with proper indexing
+- ⚡ **Performance Optimized**: Efficient SQL queries with proper indexing and bulk operations
 
 ## Quick Start
 
@@ -49,10 +51,16 @@ npm run dev
 
 The API provides endpoints for creating and retrieving hierarchical tree structures:
 
+**Core Operations:**
 - `GET /api/tree` - Get all trees
 - `POST /api/tree` - Create a new node
 - `GET /api/tree/:id` - Get specific tree by root ID
-- `GET /api/tree/stats` - Get service statistics
+
+
+**Monitoring & Validation:**
+- `GET /api/tree/stats` - Get basic service statistics
+- `GET /api/tree/detailed-stats` - Get comprehensive tree statistics
+- `GET /api/tree/validate/:id` - Validate tree structure integrity
 - `GET /api/tree/node/:id/path` - Get path to a node
 - `GET /health` - Health check endpoint
 
@@ -93,6 +101,21 @@ curl http://localhost:3000/api/tree
   }
 ]
 ```
+
+### Validate Tree Structure
+```bash
+curl http://localhost:3000/api/tree/validate/1
+```
+
+## Implementation Status
+
+### ✅ Infrastructure Available
+- **Database Layer**: Transaction support, bulk operations, ancestor queries  
+- **Service Layer**: Circular reference validation, tree structure validation
+- **API Layer**: Core tree operations, validation endpoints, comprehensive error handling
+- **Testing**: Unit tests for transactions and validation, integration tests for API workflows
+
+The codebase provides a robust foundation with all essential building blocks for tree operations.
 
 ## Documentation
 

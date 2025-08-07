@@ -214,6 +214,215 @@ class TreeQueries {
     }
 
     /**
+     * Create multiple nodes in a single transaction
+     * @param {Array<{label: string, parentId: number|null}>} nodeData - Array of node data to create
+     * @returns {Promise<Array>} Array of created nodes with their new IDs
+     */
+    async createMultipleNodes(nodeData) {
+        if (!Array.isArray(nodeData) || nodeData.length === 0) {
+            throw new Error('Node data must be a non-empty array');
+        }
+
+        try {
+            await dbConnection.beginTransaction();
+            const createdNodes = [];
+
+            for (const data of nodeData) {
+                // Validate parent exists if parentId is provided
+                if (data.parentId !== null && data.parentId !== undefined) {
+                    const parentExists = await this.nodeExists(data.parentId);
+                    if (!parentExists) {
+                        throw new Error(`Parent node with ID ${data.parentId} does not exist`);
+                    }
+                }
+
+                const sql = `INSERT INTO nodes (label, parent_id) VALUES (?, ?)`;
+                const result = await dbConnection.run(sql, [data.label, data.parentId]);
+                const newNode = await this.getNodeById(result.id);
+                createdNodes.push(newNode);
+            }
+
+            await dbConnection.commitTransaction();
+            return createdNodes;
+        } catch (error) {
+            await dbConnection.rollbackTransaction();
+            throw new Error(`Failed to create multiple nodes: ${error.message}`);
+        }
+    }
+
+    /**
+     * Get all ancestors of a node (path from node to root)
+     * @param {number} nodeId - Node ID to get ancestors for
+     * @returns {Promise<Array>} Array of ancestor nodes from immediate parent to root
+     */
+    async getAncestors(nodeId) {
+        const ancestors = [];
+        let currentNode = await this.getNodeById(nodeId);
+        
+        while (currentNode && currentNode.parent_id !== null) {
+            const parent = await this.getNodeById(currentNode.parent_id);
+            if (parent) {
+                ancestors.push(parent);
+                currentNode = parent;
+            } else {
+                break;
+            }
+        }
+        
+        return ancestors;
+    }
+
+    /**
+     * Get all ancestor IDs of a node (for efficient circular reference checking)
+     * @param {number} nodeId - Node ID to get ancestor IDs for
+     * @returns {Promise<Array<number>>} Array of ancestor node IDs
+     */
+    async getAncestorIds(nodeId) {
+        const ancestorIds = [];
+        let currentNodeId = nodeId;
+        
+        // Prevent infinite loops by limiting depth
+        let depth = 0;
+        const maxDepth = 1000;
+        
+        while (currentNodeId && depth < maxDepth) {
+            const node = await this.getNodeById(currentNodeId);
+            if (!node || node.parent_id === null) {
+                break;
+            }
+            
+            ancestorIds.push(node.parent_id);
+            currentNodeId = node.parent_id;
+            depth++;
+        }
+        
+        return ancestorIds;
+    }
+
+    /**
+     * Check if nodeA is an ancestor of nodeB (for circular reference prevention)
+     * @param {number} potentialAncestorId - ID of potential ancestor node
+     * @param {number} nodeId - ID of node to check
+     * @returns {Promise<boolean>} True if potentialAncestorId is an ancestor of nodeId
+     */
+    async isAncestor(potentialAncestorId, nodeId) {
+        if (potentialAncestorId === nodeId) {
+            return true; // A node is considered its own ancestor for circular prevention
+        }
+        
+        const ancestorIds = await this.getAncestorIds(nodeId);
+        return ancestorIds.includes(potentialAncestorId);
+    }
+
+    /**
+     * Get the depth/level of a node in the tree (distance from root)
+     * @param {number} nodeId - Node ID to get depth for
+     * @returns {Promise<number>} Depth of the node (0 for root nodes)
+     */
+    async getNodeDepth(nodeId) {
+        const ancestors = await this.getAncestors(nodeId);
+        return ancestors.length;
+    }
+
+    /**
+     * Get all nodes at a specific depth level
+     * @param {number} depth - Depth level to retrieve (0 for root nodes)
+     * @returns {Promise<Array>} Array of nodes at the specified depth
+     */
+    async getNodesAtDepth(depth) {
+        if (depth === 0) {
+            return await this.getRootNodes();
+        }
+        
+        // For deeper levels, we need to traverse the tree
+        const allNodes = await this.getAllNodes();
+        const nodesAtDepth = [];
+        
+        for (const node of allNodes) {
+            const nodeDepth = await this.getNodeDepth(node.id);
+            if (nodeDepth === depth) {
+                nodesAtDepth.push(node);
+            }
+        }
+        
+        return nodesAtDepth;
+    }
+
+    /**
+     * Get subtree size (count of descendants) for a node
+     * @param {number} nodeId - Node ID to count descendants for
+     * @returns {Promise<number>} Number of descendant nodes
+     */
+    async getSubtreeSize(nodeId) {
+        const descendants = await this.getAllDescendants(nodeId);
+        return descendants.length;
+    }
+
+    /**
+     * Update multiple nodes in a single transaction
+     * @param {Array<{id: number, label?: string, parentId?: number|null}>} updates - Array of updates to apply
+     * @returns {Promise<Array>} Array of updated nodes
+     */
+    async updateMultipleNodes(updates) {
+        if (!Array.isArray(updates) || updates.length === 0) {
+            throw new Error('Updates must be a non-empty array');
+        }
+
+        try {
+            await dbConnection.beginTransaction();
+            const updatedNodes = [];
+
+            for (const update of updates) {
+                if (!update.id) {
+                    throw new Error('Each update must include a node ID');
+                }
+
+                // Build dynamic SQL based on what fields are being updated
+                const fieldsToUpdate = [];
+                const params = [];
+
+                if (update.label !== undefined) {
+                    fieldsToUpdate.push('label = ?');
+                    params.push(update.label);
+                }
+
+                if (update.parentId !== undefined) {
+                    // Validate parent exists if not null
+                    if (update.parentId !== null) {
+                        const parentExists = await this.nodeExists(update.parentId);
+                        if (!parentExists) {
+                            throw new Error(`Parent node with ID ${update.parentId} does not exist`);
+                        }
+                    }
+                    fieldsToUpdate.push('parent_id = ?');
+                    params.push(update.parentId);
+                }
+
+                if (fieldsToUpdate.length === 0) {
+                    continue; // Skip if no fields to update
+                }
+
+                params.push(update.id); // Add ID for WHERE clause
+                const sql = `UPDATE nodes SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
+                
+                const result = await dbConnection.run(sql, params);
+                if (result.changes === 0) {
+                    throw new Error(`Node with ID ${update.id} not found`);
+                }
+
+                const updatedNode = await this.getNodeById(update.id);
+                updatedNodes.push(updatedNode);
+            }
+
+            await dbConnection.commitTransaction();
+            return updatedNodes;
+        } catch (error) {
+            await dbConnection.rollbackTransaction();
+            throw new Error(`Failed to update multiple nodes: ${error.message}`);
+        }
+    }
+
+    /**
      * Clear all nodes from database (for testing)
      * @returns {Promise<number>} Number of deleted nodes
      */

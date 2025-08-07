@@ -25,6 +25,32 @@ function globalErrorHandler(err, req, res, next) {
         });
     }
     
+    if (err.name === 'CircularReferenceError') {
+        return res.status(409).json({
+            error: 'Circular reference',
+            message: err.message,
+            timestamp: timestamp
+        });
+    }
+    
+    if (err.name === 'TransactionError') {
+        return res.status(500).json({
+            error: 'Transaction failed',
+            message: 'Database operation failed and was rolled back',
+            details: err.message,
+            timestamp: timestamp
+        });
+    }
+    
+    
+    if (err.name === 'TreeStructureError') {
+        return res.status(400).json({
+            error: 'Tree structure invalid',
+            message: err.message,
+            timestamp: timestamp
+        });
+    }
+    
     if (err.name === 'CastError') {
         return res.status(400).json({
             error: 'Invalid data format',
@@ -170,6 +196,36 @@ function createInternalError(message) {
 }
 
 /**
+ * Circular reference error creator
+ */
+function createCircularReferenceError(message) {
+    const error = new Error(message);
+    error.name = 'CircularReferenceError';
+    error.statusCode = 409;
+    return error;
+}
+
+/**
+ * Transaction error creator
+ */
+function createTransactionError(message) {
+    const error = new Error(message);
+    error.name = 'TransactionError';
+    error.statusCode = 500;
+    return error;
+}
+
+/**
+ * Tree structure error creator
+ */
+function createTreeStructureError(message) {
+    const error = new Error(message);
+    error.name = 'TreeStructureError';
+    error.statusCode = 400;
+    return error;
+}
+
+/**
  * Response time logger middleware
  */
 function responseTimeLogger(req, res, next) {
@@ -202,5 +258,8 @@ module.exports = {
     createValidationError,
     createNotFoundError,
     createInternalError,
+    createCircularReferenceError,
+    createTransactionError,
+    createTreeStructureError,
     responseTimeLogger
 };

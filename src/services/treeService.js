@@ -119,7 +119,7 @@ class TreeService {
             
             // Build hierarchy starting from this node
             const allNodes = [node, ...descendants];
-            const subtree = this.buildHierarchy(allNodes, nodeId);
+            const subtree = this.buildHierarchy(allNodes, node.parent_id);
             
             return subtree.length > 0 ? subtree[0] : null;
         } catch (error) {
@@ -317,6 +317,123 @@ class TreeService {
             throw new Error(`Failed to close service: ${error.message}`);
         }
     }
+
+    /**
+     * Validate tree structure integrity
+     * @param {Array} nodes - Array of nodes to validate
+     * @returns {Promise<Object>} Validation results with any issues found
+     */
+    async validateTreeStructure(nodes = null) {
+        if (!nodes) {
+            nodes = await treeQueries.getAllNodes();
+        }
+
+        const issues = [];
+        const nodeMap = new Map();
+        
+        // Build node map for quick lookups
+        nodes.forEach(node => {
+            nodeMap.set(node.id, node);
+        });
+
+        // Check each node
+        for (const node of nodes) {
+            // Check for orphaned nodes (parent doesn't exist)
+            if (node.parent_id !== null && !nodeMap.has(node.parent_id)) {
+                issues.push({
+                    type: 'orphaned_node',
+                    nodeId: node.id,
+                    message: `Node ${node.id} has parent_id ${node.parent_id} that doesn't exist`
+                });
+            }
+
+            // Check for potential circular references
+            if (node.parent_id !== null) {
+                try {
+                    const ancestorIds = await treeQueries.getAncestorIds(node.id);
+                    if (ancestorIds.includes(node.id)) {
+                        issues.push({
+                            type: 'circular_reference',
+                            nodeId: node.id,
+                            message: `Node ${node.id} is its own ancestor`
+                        });
+                    }
+                } catch (error) {
+                    issues.push({
+                        type: 'traversal_error',
+                        nodeId: node.id,
+                        message: `Error traversing ancestors of node ${node.id}: ${error.message}`
+                    });
+                }
+            }
+        }
+
+        return {
+            isValid: issues.length === 0,
+            issues: issues,
+            totalNodes: nodes.length,
+            rootNodes: nodes.filter(n => n.parent_id === null).length
+        };
+    }
+
+    /**
+     * Get detailed tree statistics including depth analysis
+     * @returns {Promise<Object>} Comprehensive tree statistics
+     */
+    async getDetailedStats() {
+        await this.initialize();
+        
+        try {
+            const allNodes = await treeQueries.getAllNodes();
+            const trees = this.buildHierarchy(allNodes);
+            
+            // Calculate depth statistics
+            const depthStats = new Map();
+            let maxDepth = 0;
+            
+            for (const node of allNodes) {
+                const depth = await treeQueries.getNodeDepth(node.id);
+                maxDepth = Math.max(maxDepth, depth);
+                
+                if (!depthStats.has(depth)) {
+                    depthStats.set(depth, 0);
+                }
+                depthStats.set(depth, depthStats.get(depth) + 1);
+            }
+
+            // Calculate subtree sizes
+            const subtreeSizes = [];
+            for (const tree of trees) {
+                const size = await treeQueries.getSubtreeSize(tree.id);
+                subtreeSizes.push({
+                    rootId: tree.id,
+                    rootLabel: tree.label,
+                    subtreeSize: size + 1 // +1 to include the root itself
+                });
+            }
+
+            return {
+                totalNodes: allNodes.length,
+                totalTrees: trees.length,
+                maxDepth: maxDepth,
+                depthDistribution: Array.from(depthStats.entries()).map(([depth, count]) => ({
+                    depth,
+                    nodeCount: count
+                })),
+                subtreeSizes: subtreeSizes,
+                averageSubtreeSize: subtreeSizes.length > 0 ? 
+                    subtreeSizes.reduce((sum, s) => sum + s.subtreeSize, 0) / subtreeSizes.length : 0
+            };
+        } catch (error) {
+            throw new Error(`Failed to get detailed stats: ${error.message}`);
+        }
+    }
+
+
+
+
+
+
 
     /**
      * Reset service state (for testing purposes)

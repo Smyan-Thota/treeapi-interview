@@ -450,6 +450,130 @@ class TreeController {
         }
     }
 
+
+
+
+
+    /**
+     * GET /api/tree/validate/:id
+     * Validate tree structure for a specific subtree
+     * 
+     * @swagger
+     * /tree/validate/{id}:
+     *   get:
+     *     summary: Validate tree structure
+     *     description: Validates the integrity of a tree structure starting from the specified node
+     *     tags: [validation]
+     *     parameters:
+     *       - name: id
+     *         in: path
+     *         required: true
+     *         description: The ID of the root node to validate from
+     *         schema:
+     *           type: integer
+     *           minimum: 1
+     *     responses:
+     *       200:
+     *         description: Validation completed
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ValidationResponse'
+     *       400:
+     *         $ref: '#/components/responses/InvalidId'
+     *       404:
+     *         $ref: '#/components/responses/NodeNotFound'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     */
+    validateTreeStructure = async (req, res) => {
+        try {
+            const nodeId = parseInt(req.params.id);
+            
+            if (!Number.isInteger(nodeId) || nodeId <= 0) {
+                return res.status(400).json({
+                    error: 'Bad request',
+                    message: 'Node ID must be a positive integer'
+                });
+            }
+            
+            console.log('GET /api/tree/validate/:id - Validating tree structure for node:', nodeId);
+            
+            // Check if node exists
+            const node = await treeService.getNodeWithSubtree(nodeId);
+            if (!node) {
+                return res.status(404).json({
+                    error: 'Node not found',
+                    message: `Node with ID ${nodeId} does not exist`
+                });
+            }
+            
+            // Validate tree structure
+            const validation = await treeService.validateTreeStructure();
+            
+            res.status(200).json({
+                nodeId: nodeId,
+                validation: validation,
+                timestamp: new Date().toISOString()
+            });
+            
+            console.log('GET /api/tree/validate/:id - Success: Validation completed for node', nodeId);
+        } catch (error) {
+            console.error('GET /api/tree/validate/:id - Error:', error.message);
+            
+            res.status(500).json({
+                error: 'Internal server error',
+                message: 'Failed to validate tree structure',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * GET /api/tree/detailed-stats
+     * Get detailed statistics about the tree structure
+     * 
+     * @swagger
+     * /tree/detailed-stats:
+     *   get:
+     *     summary: Get detailed tree statistics
+     *     description: Retrieves comprehensive statistics including depth analysis and subtree sizes
+     *     tags: [monitoring]
+     *     responses:
+     *       200:
+     *         description: Successfully retrieved detailed statistics
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/DetailedStats'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     */
+    getDetailedStats = async (req, res) => {
+        try {
+            console.log('GET /api/tree/detailed-stats - Fetching detailed statistics');
+            
+            const stats = await treeService.getDetailedStats();
+            
+            res.status(200).json({
+                ...stats,
+                timestamp: new Date().toISOString()
+            });
+            
+            console.log('GET /api/tree/detailed-stats - Success: Returned detailed statistics');
+        } catch (error) {
+            console.error('GET /api/tree/detailed-stats - Error:', error.message);
+            
+            res.status(500).json({
+                error: 'Internal server error',
+                message: 'Failed to retrieve detailed statistics',
+                details: error.message
+            });
+        }
+    }
+
+
+
     /**
      * Handle 404 for unknown routes
      * Returns a standardized 404 response with available endpoints
@@ -467,7 +591,10 @@ class TreeController {
                 'POST /api/tree',
                 'GET /api/tree/:id',
                 'GET /api/tree/stats',
+                'GET /api/tree/detailed-stats',
                 'GET /api/tree/node/:id/path',
+                'GET /api/tree/validate/:id',
+
                 'GET /health'
             ]
         });

@@ -27,6 +27,18 @@ router.post('/', treeController.createNode);
 router.get('/stats', treeController.getStats);
 
 /**
+ * GET /api/tree/detailed-stats
+ * Get detailed service statistics including depth analysis
+ */
+router.get('/detailed-stats', treeController.getDetailedStats);
+
+/**
+ * GET /api/tree/validate/:id
+ * Validate tree structure for a specific subtree
+ */
+router.get('/validate/:id', treeController.validateTreeStructure);
+
+/**
  * GET /api/tree/node/:id/path
  * Get the path from root to a specific node (additional endpoint for navigation)
  */
