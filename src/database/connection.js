@@ -5,6 +5,7 @@ const path = require('path');
 class DatabaseConnection {
     constructor() {
         this.db = null;
+        this.isClosed = false;
         this.dbPath = path.join(__dirname, '../../database/tree.db');
         // Use test schema when running tests
         const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
@@ -16,6 +17,9 @@ class DatabaseConnection {
      */
     async connect() {
         return new Promise((resolve, reject) => {
+            // Reset closed flag when connecting
+            this.isClosed = false;
+            
             // Ensure database directory exists
             const dbDir = path.dirname(this.dbPath);
             if (!fs.existsSync(dbDir)) {
@@ -71,6 +75,9 @@ class DatabaseConnection {
      * @returns {Promise} Promise that resolves with query results
      */
     async run(sql, params = []) {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
         return new Promise((resolve, reject) => {
             this.db.run(sql, params, function(err) {
                 if (err) {
@@ -93,6 +100,9 @@ class DatabaseConnection {
      * @returns {Promise} Promise that resolves with single row
      */
     async get(sql, params = []) {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
         return new Promise((resolve, reject) => {
             this.db.get(sql, params, (err, row) => {
                 if (err) {
@@ -112,6 +122,9 @@ class DatabaseConnection {
      * @returns {Promise} Promise that resolves with array of rows
      */
     async all(sql, params = []) {
+        if (this.isClosed) {
+            return Promise.reject(new Error('Database connection is closed'));
+        }
         return new Promise((resolve, reject) => {
             this.db.all(sql, params, (err, rows) => {
                 if (err) {
@@ -130,16 +143,19 @@ class DatabaseConnection {
     async close() {
         return new Promise((resolve, reject) => {
             if (this.db) {
+                this.isClosed = true;
                 this.db.close((err) => {
                     if (err) {
                         console.error('Error closing database:', err.message);
                         reject(err);
                     } else {
                         console.log('Database connection closed');
+                        this.db = null;
                         resolve();
                     }
                 });
             } else {
+                this.isClosed = true;
                 resolve();
             }
         });

@@ -1,0 +1,587 @@
+openapi: 3.0.3
+info:
+  title: Tree API
+  description: |
+    A production-ready HTTP server for managing hierarchical tree data structures.
+    
+    This API allows you to create nodes, retrieve tree structures, and perform various tree operations with persistence using SQLite database.
+    
+    ## Features
+    - Create and manage tree structures with unlimited depth
+    - Persistent storage using SQLite
+    - Comprehensive error handling and validation
+    - RESTful API design
+    
+    ## Base URL
+    ```
+    http://localhost:3000/api
+    ```
+  version: 1.0.0
+  contact:
+    name: Tree API Support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+
+tags:
+  - name: trees
+    description: Tree management operations
+  - name: nodes
+    description: Node-specific operations
+  - name: monitoring
+    description: Service monitoring and health checks
+
+paths:
+  /tree:
+    get:
+      tags:
+        - trees
+      summary: Get all trees
+      description: |
+        Retrieves all trees in the database in hierarchical format.
+        Returns an array of root nodes with their complete tree structures, including nested children.
+      operationId: getAllTrees
+      responses:
+        '200':
+          description: Successfully retrieved all trees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TreeNode'
+              examples:
+                single_tree:
+                  summary: Example with one tree
+                  value:
+                    - id: 1
+                      label: "root"
+                      children:
+                        - id: 3
+                          label: "bear"
+                          children:
+                            - id: 4
+                              label: "cat"
+                              children: []
+                        - id: 7
+                          label: "frog"
+                          children: []
+                multiple_trees:
+                  summary: Example with multiple trees
+                  value:
+                    - id: 1
+                      label: "Animals"
+                      children:
+                        - id: 2
+                          label: "Mammals"
+                          children: []
+                    - id: 5
+                      label: "Plants"
+                      children:
+                        - id: 6
+                          label: "Trees"
+                          children: []
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - trees
+      summary: Create a new node
+      description: |
+        Creates a new node and attaches it to the specified parent node in the tree.
+        Use `parentId: null` to create a root node.
+      operationId: createNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNodeRequest'
+            examples:
+              root_node:
+                summary: Create a root node
+                value:
+                  label: "root"
+                  parentId: null
+              child_node:
+                summary: Create a child node
+                value:
+                  label: "child node"
+                  parentId: 1
+      responses:
+        '201':
+          description: Node created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedNode'
+              examples:
+                created_root:
+                  summary: Created root node
+                  value:
+                    id: 1
+                    label: "root"
+                    children: []
+                created_child:
+                  summary: Created child node
+                  value:
+                    id: 2
+                    label: "child node"
+                    children: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/ParentNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tree/{id}:
+    get:
+      tags:
+        - trees
+      summary: Get tree by ID
+      description: |
+        Retrieves a specific tree by its root node ID.
+        Returns a single tree structure starting from the specified root node.
+      operationId: getTreeById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the root node
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Successfully retrieved the tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreeNode'
+              examples:
+                tree_with_children:
+                  summary: Tree with nested children
+                  value:
+                    id: 1
+                    label: "root"
+                    children:
+                      - id: 3
+                        label: "bear"
+                        children:
+                          - id: 4
+                            label: "cat"
+                            children: []
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/TreeNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tree/stats:
+    get:
+      tags:
+        - monitoring
+      summary: Get service statistics
+      description: |
+        Retrieves statistics about the tree service for monitoring purposes.
+        Returns information about nodes, trees, and service health.
+      operationId: getStats
+      responses:
+        '200':
+          description: Successfully retrieved statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStats'
+              examples:
+                stats_example:
+                  summary: Service statistics
+                  value:
+                    totalNodes: 15
+                    totalTrees: 3
+                    maxDepth: 4
+                    serviceUptime: "2 hours, 15 minutes"
+                    timestamp: "2024-12-19T10:30:00.000Z"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tree/node/{id}/path:
+    get:
+      tags:
+        - nodes
+      summary: Get node path
+      description: |
+        Retrieves the path from root to a specific node.
+        Returns the complete path from the root node to the specified node, useful for navigation and breadcrumbs.
+      operationId: getNodePath
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the target node
+          schema:
+            type: integer
+            minimum: 1
+          example: 4
+      responses:
+        '200':
+          description: Successfully retrieved the node path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodePath'
+              examples:
+                path_example:
+                  summary: Path to a deeply nested node
+                  value:
+                    nodeId: 4
+                    path:
+                      - id: 1
+                        label: "root"
+                      - id: 3
+                        label: "bear"
+                      - id: 4
+                        label: "cat"
+                    depth: 3
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/NodeNotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /health:
+    get:
+      tags:
+        - monitoring
+      summary: Health check
+      description: |
+        Checks the health status of the API service.
+        Returns the health status of the API and database connectivity.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Healthy service
+                  value:
+                    status: "healthy"
+                    message: "Tree API is running"
+                    timestamp: "2024-12-19T10:30:00.000Z"
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnhealthyResponse'
+              examples:
+                unhealthy:
+                  summary: Unhealthy service
+                  value:
+                    status: "unhealthy"
+                    message: "Service unavailable"
+                    error: "Database connection failed"
+                    timestamp: "2024-12-19T10:30:00.000Z"
+
+components:
+  schemas:
+    TreeNode:
+      type: object
+      required:
+        - id
+        - label
+        - children
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the node
+          example: 1
+        label:
+          type: string
+          description: Human-readable label for the node
+          example: "root"
+        children:
+          type: array
+          description: Array of child nodes
+          items:
+            $ref: '#/components/schemas/TreeNode'
+
+    CreateNodeRequest:
+      type: object
+      required:
+        - label
+        - parentId
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Label for the new node
+          example: "new node"
+        parentId:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: ID of parent node (null for root nodes)
+          example: 1
+
+    CreatedNode:
+      type: object
+      required:
+        - id
+        - label
+        - children
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the created node
+          example: 2
+        label:
+          type: string
+          description: Label of the created node
+          example: "new node"
+        children:
+          type: array
+          description: Array of child nodes (always empty for newly created nodes)
+          items:
+            $ref: '#/components/schemas/TreeNode'
+          example: []
+
+    ServiceStats:
+      type: object
+      required:
+        - totalNodes
+        - totalTrees
+        - maxDepth
+        - serviceUptime
+        - timestamp
+      properties:
+        totalNodes:
+          type: integer
+          description: Total number of nodes in the database
+          example: 15
+        totalTrees:
+          type: integer
+          description: Total number of trees (root nodes)
+          example: 3
+        maxDepth:
+          type: integer
+          description: Maximum depth of any tree
+          example: 4
+        serviceUptime:
+          type: string
+          description: Service uptime in human-readable format
+          example: "2 hours, 15 minutes"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when statistics were generated
+          example: "2024-12-19T10:30:00.000Z"
+
+    NodePath:
+      type: object
+      required:
+        - nodeId
+        - path
+        - depth
+      properties:
+        nodeId:
+          type: integer
+          description: ID of the target node
+          example: 4
+        path:
+          type: array
+          description: Array of nodes from root to target
+          items:
+            type: object
+            required:
+              - id
+              - label
+            properties:
+              id:
+                type: integer
+                description: Node ID
+                example: 1
+              label:
+                type: string
+                description: Node label
+                example: "root"
+        depth:
+          type: integer
+          description: Depth of the node (length of path)
+          example: 3
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - message
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+          description: Health status
+          example: "healthy"
+        message:
+          type: string
+          description: Health status message
+          example: "Tree API is running"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of health check
+          example: "2024-12-19T10:30:00.000Z"
+
+    UnhealthyResponse:
+      type: object
+      required:
+        - status
+        - message
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [unhealthy]
+          description: Health status
+          example: "unhealthy"
+        message:
+          type: string
+          description: Health status message
+          example: "Service unavailable"
+        error:
+          type: string
+          description: Error details
+          example: "Database connection failed"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of health check
+          example: "2024-12-19T10:30:00.000Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Bad request"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Label is required"
+        details:
+          type: string
+          description: Additional technical details
+          example: "Validation failed for required field"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_label:
+              summary: Missing label
+              value:
+                error: "Bad request"
+                message: "Label is required"
+            empty_label:
+              summary: Empty label
+              value:
+                error: "Bad request"
+                message: "Label cannot be empty"
+            invalid_parent_id:
+              summary: Invalid parent ID
+              value:
+                error: "Bad request"
+                message: "ParentId must be a positive integer or null"
+
+    InvalidId:
+      description: Invalid ID parameter
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalid_tree_id:
+              summary: Invalid tree ID
+              value:
+                error: "Bad request"
+                message: "Tree ID must be a positive integer"
+            invalid_node_id:
+              summary: Invalid node ID
+              value:
+                error: "Bad request"
+                message: "Node ID must be a positive integer"
+
+    ParentNotFound:
+      description: Parent node not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            parent_not_found:
+              summary: Parent node doesn't exist
+              value:
+                error: "Parent not found"
+                message: "Parent node with ID 999 does not exist"
+
+    TreeNotFound:
+      description: Tree not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            tree_not_found:
+              summary: Tree doesn't exist
+              value:
+                error: "Tree not found"
+                message: "Tree with root ID 999 does not exist"
+
+    NodeNotFound:
+      description: Node not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            node_not_found:
+              summary: Node doesn't exist
+              value:
+                error: "Node not found"
+                message: "Node with ID 999 does not exist"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            server_error:
+              summary: Generic server error
+              value:
+                error: "Internal server error"
+                message: "Failed to retrieve trees"
+                details: "Database connection failed"

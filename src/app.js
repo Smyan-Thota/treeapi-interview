@@ -9,6 +9,11 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 
 // Import routes and middleware
 const treeRoutes = require('./routes/treeRoutes');
@@ -91,6 +96,68 @@ if (NODE_ENV === 'production') {
 // API key validation (optional)
 app.use(validateApiKey);
 
+// Swagger/OpenAPI Documentation Setup
+let swaggerDocument;
+try {
+    // Load the swagger.yaml file
+    const swaggerPath = path.join(__dirname, '..', 'swagger.yaml');
+    const swaggerFile = fs.readFileSync(swaggerPath, 'utf8');
+    swaggerDocument = yaml.load(swaggerFile);
+    
+    // Update server URL based on environment
+    if (swaggerDocument.servers) {
+        swaggerDocument.servers[0].url = `http://localhost:${PORT}/api`;
+    }
+} catch (error) {
+    console.warn('⚠️  Could not load swagger.yaml, using basic JSDoc configuration:', error.message);
+    
+    // Fallback to JSDoc-based configuration
+    const swaggerOptions = {
+        definition: {
+            openapi: '3.0.3',
+            info: {
+                title: 'Tree API',
+                version: '1.0.0',
+                description: 'A production-ready HTTP server for managing hierarchical tree data structures',
+            },
+            servers: [
+                {
+                    url: `http://localhost:${PORT}/api`,
+                    description: 'Development server',
+                },
+            ],
+        },
+        apis: ['./src/routes/*.js', './src/controllers/*.js'], // paths to files containing OpenAPI definitions
+    };
+    
+    swaggerDocument = swaggerJsdoc(swaggerOptions);
+}
+
+// Swagger UI options
+const swaggerUiOptions = {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Tree API Documentation',
+    swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        docExpansion: 'list',
+        filter: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        defaultModelsExpandDepth: 2,
+        defaultModelExpandDepth: 2,
+    }
+};
+
+// Serve API documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerUiOptions));
+
+// Serve raw OpenAPI spec
+app.get('/api-docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerDocument);
+});
+
 // Health check endpoint (before API routes)
 app.get('/health', asyncHandler(treeController.healthCheck));
 
@@ -109,23 +176,28 @@ app.get('/', (req, res) => {
             getNodePath: 'GET /api/tree/node/:id/path'
         },
         documentation: {
-            getAllTrees: {
-                method: 'GET',
-                path: '/api/tree',
-                description: 'Returns an array of all trees that exist in the database',
-                response: 'Array of tree objects with nested children'
-            },
-            createNode: {
-                method: 'POST',
-                path: '/api/tree',
-                description: 'Creates a new node and attaches it to the specified parent node',
-                body: {
-                    label: 'string (required)',
-                    parentId: 'number|null (required)'
+            interactive: `http://localhost:${PORT}/api-docs`,
+            openapi_spec: `http://localhost:${PORT}/api-docs.json`,
+            markdown: 'See API.md file in project root',
+            examples: {
+                createNode: {
+                    method: 'POST',
+                    path: '/api/tree',
+                    description: 'Creates a new node and attaches it to the specified parent node',
+                    body: {
+                        label: 'string (required)',
+                        parentId: 'number|null (required)'
+                    },
+                    example: {
+                        label: "cat's child",
+                        parentId: 4
+                    }
                 },
-                example: {
-                    label: "cat's child",
-                    parentId: 4
+                getAllTrees: {
+                    method: 'GET',
+                    path: '/api/tree',
+                    description: 'Returns an array of all trees that exist in the database',
+                    response: 'Array of tree objects with nested children'
                 }
             }
         },
@@ -159,6 +231,10 @@ async function startServer() {
             console.log(`   GET  /api/tree/:id         - Get specific tree`);
             console.log(`   GET  /api/tree/stats       - Get service statistics`);
             console.log(`   GET  /api/tree/node/:id/path - Get node path`);
+            console.log('📖 Documentation:');
+            console.log(`   📊 Interactive API docs:  http://localhost:${PORT}/api-docs`);
+            console.log(`   📄 OpenAPI Spec:          http://localhost:${PORT}/api-docs.json`);
+            console.log(`   📋 Complete API Guide:    API.md file`);
             console.log('✅ Server ready to accept connections');
         });
         

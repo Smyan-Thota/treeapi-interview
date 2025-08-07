@@ -6,6 +6,7 @@
 const { app } = require('../../src/app');
 const dbInit = require('../../src/database/init');
 const treeQueries = require('../../src/database/queries');
+const treeService = require('../../src/services/treeService');
 
 let server;
 
@@ -14,6 +15,9 @@ let server;
  */
 async function setupIntegrationTests() {
     try {
+        // Reset service state for clean test environment
+        treeService.reset();
+        
         // Initialize database
         await dbInit.initialize();
         
@@ -58,17 +62,21 @@ async function teardownIntegrationTests() {
         // Clear test data
         await treeQueries.clearAllNodes();
         
-        // Close server with promise
+        // Close server with promise and wait for all connections to close
         if (server) {
             await new Promise((resolve) => {
                 server.close(() => {
-                    resolve();
+                    // Give time for any pending requests to complete
+                    setTimeout(resolve, 100);
                 });
             });
         }
         
-        // Close database connection
-        await dbInit.close();
+        // Wait a bit more to ensure all async operations complete
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Close service (this sets shutdown flag and closes database)
+        await treeService.close();
         
         console.log('Integration tests cleaned up successfully');
     } catch (error) {

@@ -24,11 +24,17 @@ class DatabaseInitializer {
         try {
             console.log('Resetting database...');
             
-            // Clear existing data
-            await treeQueries.clearAllNodes();
+            // Clear existing data completely
+            await dbConnection.run('DELETE FROM nodes');
             
-            // Reinitialize schema (will create sample data)
+            // Reset the SQLite autoincrement sequence
+            await dbConnection.run('DELETE FROM sqlite_sequence WHERE name = ?', ['nodes']);
+            
+            // Reinitialize schema (just the table structure, no data)
             await dbConnection.initializeSchema();
+            
+            // Explicitly seed with sample data
+            await this.seed();
             
             console.log('Database reset successfully');
             return true;

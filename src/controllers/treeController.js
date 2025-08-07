@@ -8,8 +8,29 @@ class TreeController {
     /**
      * GET /api/tree
      * Returns an array of all trees that exist in the database
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * 
+     * @swagger
+     * /tree:
+     *   get:
+     *     summary: Get all trees
+     *     description: Retrieves all trees in the database in hierarchical format
+     *     tags: [trees]
+     *     responses:
+     *       200:
+     *         description: Successfully retrieved all trees
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 $ref: '#/components/schemas/TreeNode'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     * 
+     * @param {import('express').Request} req - Express request object
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When database operation fails
      */
     getAllTrees = async (req, res) => {
         try {
@@ -35,8 +56,37 @@ class TreeController {
     /**
      * POST /api/tree
      * Creates a new node and attaches it to the specified parent node in the tree
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * 
+     * @swagger
+     * /tree:
+     *   post:
+     *     summary: Create a new node
+     *     description: Creates a new node and attaches it to the specified parent node
+     *     tags: [trees]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/CreateNodeRequest'
+     *     responses:
+     *       201:
+     *         description: Node created successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/CreatedNode'
+     *       400:
+     *         $ref: '#/components/responses/BadRequest'
+     *       404:
+     *         $ref: '#/components/responses/ParentNotFound'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     * 
+     * @param {import('express').Request} req - Express request object containing label and parentId in body
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When validation fails or database operation fails
      */
     createNode = async (req, res) => {
         try {
@@ -96,8 +146,20 @@ class TreeController {
 
     /**
      * Validate the request body for creating a new node
-     * @param {Object} body - Request body
-     * @returns {string|null} Error message or null if valid
+     * Performs comprehensive validation of label and parentId fields
+     * 
+     * @param {Object} body - Request body to validate
+     * @param {string} body.label - Node label (required, 1-255 characters)
+     * @param {number|null} body.parentId - Parent node ID (required, positive integer or null)
+     * @returns {string|null} Error message if validation fails, null if valid
+     * @example
+     * // Valid request body
+     * const validBody = { label: "test node", parentId: 1 };
+     * const error = validateCreateNodeRequest(validBody); // returns null
+     * 
+     * // Invalid request body
+     * const invalidBody = { label: "", parentId: "invalid" };
+     * const error = validateCreateNodeRequest(invalidBody); // returns error message
      */
     validateCreateNodeRequest(body) {
         // Check if body exists
@@ -144,8 +206,39 @@ class TreeController {
     /**
      * GET /api/tree/:id
      * Get a specific tree by root node ID (additional endpoint for flexibility)
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * 
+     * @swagger
+     * /tree/{id}:
+     *   get:
+     *     summary: Get tree by ID
+     *     description: Retrieves a specific tree by its root node ID
+     *     tags: [trees]
+     *     parameters:
+     *       - name: id
+     *         in: path
+     *         required: true
+     *         description: The ID of the root node
+     *         schema:
+     *           type: integer
+     *           minimum: 1
+     *     responses:
+     *       200:
+     *         description: Successfully retrieved the tree
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/TreeNode'
+     *       400:
+     *         $ref: '#/components/responses/InvalidId'
+     *       404:
+     *         $ref: '#/components/responses/TreeNotFound'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     * 
+     * @param {import('express').Request} req - Express request object with id parameter
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When tree ID is invalid or database operation fails
      */
     getTreeById = async (req, res) => {
         try {
@@ -187,8 +280,27 @@ class TreeController {
     /**
      * GET /api/tree/stats
      * Get statistics about the tree service (additional endpoint for monitoring)
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * 
+     * @swagger
+     * /tree/stats:
+     *   get:
+     *     summary: Get service statistics
+     *     description: Retrieves statistics about the tree service for monitoring
+     *     tags: [monitoring]
+     *     responses:
+     *       200:
+     *         description: Successfully retrieved statistics
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ServiceStats'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     * 
+     * @param {import('express').Request} req - Express request object
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When database operation fails
      */
     getStats = async (req, res) => {
         try {
@@ -213,8 +325,39 @@ class TreeController {
     /**
      * GET /api/tree/node/:id/path
      * Get the path from root to a specific node (additional endpoint for navigation)
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * 
+     * @swagger
+     * /tree/node/{id}/path:
+     *   get:
+     *     summary: Get node path
+     *     description: Retrieves the path from root to a specific node
+     *     tags: [nodes]
+     *     parameters:
+     *       - name: id
+     *         in: path
+     *         required: true
+     *         description: The ID of the target node
+     *         schema:
+     *           type: integer
+     *           minimum: 1
+     *     responses:
+     *       200:
+     *         description: Successfully retrieved the node path
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/NodePath'
+     *       400:
+     *         $ref: '#/components/responses/InvalidId'
+     *       404:
+     *         $ref: '#/components/responses/NodeNotFound'
+     *       500:
+     *         $ref: '#/components/responses/InternalServerError'
+     * 
+     * @param {import('express').Request} req - Express request object with id parameter
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When node ID is invalid or database operation fails
      */
     getNodePath = async (req, res) => {
         try {
@@ -258,8 +401,32 @@ class TreeController {
 
     /**
      * Health check endpoint
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * Tests database connectivity and returns service health status
+     * 
+     * @swagger
+     * /health:
+     *   get:
+     *     summary: Health check
+     *     description: Checks the health status of the API service
+     *     tags: [monitoring]
+     *     responses:
+     *       200:
+     *         description: Service is healthy
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/HealthResponse'
+     *       503:
+     *         description: Service is unhealthy
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/UnhealthyResponse'
+     * 
+     * @param {import('express').Request} req - Express request object
+     * @param {import('express').Response} res - Express response object
+     * @returns {Promise<void>} Promise that resolves when the response is sent
+     * @throws {Error} When service health check fails
      */
     healthCheck = async (req, res) => {
         try {
@@ -285,8 +452,11 @@ class TreeController {
 
     /**
      * Handle 404 for unknown routes
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
+     * Returns a standardized 404 response with available endpoints
+     * 
+     * @param {import('express').Request} req - Express request object
+     * @param {import('express').Response} res - Express response object
+     * @returns {void} Sends 404 response with available endpoints
      */
     notFound = (req, res) => {
         res.status(404).json({

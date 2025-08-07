@@ -8,12 +8,16 @@ const dbInit = require('../database/init');
 class TreeService {
     constructor() {
         this.initialized = false;
+        this.isShutdown = false;
     }
 
     /**
      * Initialize the service (ensure database is ready)
      */
     async initialize() {
+        if (this.isShutdown) {
+            throw new Error('Service has been shut down and cannot be reinitialized');
+        }
         if (!this.initialized) {
             await dbInit.initialize();
             this.initialized = true;
@@ -308,9 +312,18 @@ class TreeService {
         try {
             await dbInit.close();
             this.initialized = false;
+            this.isShutdown = true;
         } catch (error) {
             throw new Error(`Failed to close service: ${error.message}`);
         }
+    }
+
+    /**
+     * Reset service state (for testing purposes)
+     */
+    reset() {
+        this.initialized = false;
+        this.isShutdown = false;
     }
 }
 
