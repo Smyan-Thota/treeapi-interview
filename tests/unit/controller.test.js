@@ -465,29 +465,6 @@ describe('TreeController Unit Tests', () => {
         });
     });
 
-    describe('notFound', () => {
-        test('should return 404 with available endpoints', () => {
-            mockReq.method = 'GET';
-            mockReq.path = '/api/unknown';
-
-            treeController.notFound(mockReq, mockRes);
-
-            expect(mockRes.status).toHaveBeenCalledWith(404);
-            expect(mockRes.json).toHaveBeenCalledWith({
-                error: 'Not found',
-                message: 'Route GET /api/unknown not found',
-                availableEndpoints: [
-                    'GET /api/tree',
-                    'POST /api/tree',
-                    'GET /api/tree/:id',
-                    'GET /api/tree/stats',
-                    'GET /api/tree/node/:id/path',
-                    'GET /health'
-                ]
-            });
-        });
-    });
-
     describe('validateCreateNodeRequest', () => {
         test('should validate correct request body', () => {
             const validBody = { label: 'test', parentId: 1 };

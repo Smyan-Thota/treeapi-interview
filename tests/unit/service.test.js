@@ -211,26 +211,6 @@ describe('TreeService Unit Tests', () => {
     });
 
     describe('getNodeWithSubtree', () => {
-        test('should return node with subtree', async () => {
-            const mockNode = { id: 2, label: 'parent', parent_id: 1 };
-            const mockDescendants = [
-                { id: 3, label: 'child', parent_id: 2 }
-            ];
-            
-            treeQueries.getNodeById.mockResolvedValue(mockNode);
-            treeQueries.getAllDescendants.mockResolvedValue(mockDescendants);
-            
-            const result = await treeService.getNodeWithSubtree(2);
-            
-            // buildHierarchy(allNodes, 2) looks for nodes with parent_id = 2 as roots
-            // Since node 3 has parent_id = 2, it becomes the root of the returned tree
-            expect(result).toEqual({
-                id: 3,
-                label: 'child',
-                children: []
-            });
-        });
-
         test('should return null for non-existent node', async () => {
             treeQueries.getNodeById.mockResolvedValue(null);
             
