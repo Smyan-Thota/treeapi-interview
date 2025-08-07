@@ -13,9 +13,3 @@ CREATE TABLE IF NOT EXISTS nodes (
 -- Create index on parent_id for efficient tree queries
 CREATE INDEX IF NOT EXISTS idx_parent_id ON nodes(parent_id);
 
--- Insert some sample data for testing
-INSERT OR IGNORE INTO nodes (id, label, parent_id) VALUES
-(1, 'root', NULL),
-(3, 'bear', 1),
-(4, 'cat', 3),
-(7, 'frog', 1);
