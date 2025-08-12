@@ -429,10 +429,46 @@ class TreeService {
         }
     }
 
+    async moveNodeAndSubtree(sourceNodeId, newParentId) {
+        await this.initialize();
+        
+        try {
+            // Get the source node
+            const sourceNode = await treeQueries.getNodeById(sourceNodeId);
+            
+            // Prevent moving a node to itself
+            if (sourceNodeId === newParentId) {
+                throw new Error('Cannot move a node to be its own child');
+            }
+            
+            // Prevent moving a node to be its own descendant
+            if (newParentId !== null) {
+                const descendants = await treeQueries.getAllDescendants(sourceNodeId);
+                const descendantIds = descendants.map(d => d.id);
+                if (descendantIds.includes(newParentId)) {
+                    throw new Error('Cannot move a node to be its own descendant');
+                }
+            }
+            
+            // Prevent moving a node to its current parent
+            if (sourceNode.parent_id === newParentId) {
+                throw new Error('Node is already a child of the specified parent');
+            }
+            
+            // Move the node and its entire subtree
+            const movedNode = await treeQueries.moveNodeAndSubtree(sourceNodeId, newParentId);
+            
+            return movedNode;
+            
+        } catch (error) {
+            throw new Error(`Failed to move node and subtree: ${error.message}`);
+        }
+    }
+
+    
 
 
-
-
+    
 
 
     /**

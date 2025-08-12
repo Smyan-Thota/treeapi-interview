@@ -203,6 +203,7 @@ class TreeController {
         return null; // No validation errors
     }
 
+
     /**
      * GET /api/tree/:id
      * Get a specific tree by root node ID (additional endpoint for flexibility)
@@ -529,6 +530,23 @@ class TreeController {
         }
     }
 
+   
+    moveNode = async (req, res) => {
+        try {
+            const { sourceNodeId, targetParentId } = req.body;
+            
+            // Move the node and its subtree
+            const movedNode = await treeService.moveNodeAndSubtree(sourceNodeId, targetParentId);
+            
+            res.status(200).json({ movedNode });
+            
+        } catch (error) {
+            console.error('POST /api/tree/move - Error:', error.message);
+        }
+    }
+
+
+
     /**
      * GET /api/tree/detailed-stats
      * Get detailed statistics about the tree structure
@@ -594,6 +612,7 @@ class TreeController {
                 'GET /api/tree/detailed-stats',
                 'GET /api/tree/node/:id/path',
                 'GET /api/tree/validate/:id',
+                'POST /api/tree/move',
 
                 'GET /health'
             ]

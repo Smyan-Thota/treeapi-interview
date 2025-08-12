@@ -947,4 +947,3 @@ echo "📊 Final tree structure size:"
 curl -s http://localhost:3000/api/tree/stats | jq '.totalNodes'
 ```
 
-This completes the comprehensive examples documentation for all Tree API endpoints with various scenarios, error cases, and testing approaches.

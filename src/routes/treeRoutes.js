@@ -21,6 +21,13 @@ router.get('/', treeController.getAllTrees);
 router.post('/', treeController.createNode);
 
 /**
+ * POST /api/tree/move
+ * Move a node and its entire subtree to a new parent
+ * Request body: { "sourceNodeId": number, "targetParentId": number|null }
+ */
+router.post('/move', treeController.moveNode);
+
+/**
  * GET /api/tree/stats
  * Get service statistics (additional endpoint for monitoring)
  */

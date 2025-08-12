@@ -43,6 +43,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Configure JSON formatting for pretty printing in development
+if (NODE_ENV === 'development') {
+    app.set('json spaces', 2);
+}
+
 // Handle uncaught exceptions
 handleUncaughtException();
 
@@ -77,6 +82,17 @@ app.use(handleCORS);
 // Request parsing middleware
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Custom middleware to format JSON responses with proper indentation
+app.use((req, res, next) => {
+    const originalJson = res.json;
+    res.json = function(data) {
+        // Set proper content type and formatting
+        res.setHeader('Content-Type', 'application/json');
+        return originalJson.call(this, data);
+    };
+    next();
+});
 
 // Security and validation middleware
 app.use(securityHeaders);

@@ -436,6 +436,50 @@ class TreeQueries {
             throw new Error(`Failed to clear nodes: ${error.message}`);
         }
     }
+
+    async moveNodeAndSubtree(sourceNodeId, newParentId) {
+        try {
+            await dbConnection.beginTransaction();
+            const sourceNode = await this.getNodeById(sourceNodeId);
+            if (!sourceNode) {
+                throw new Error(`Source node with ID ${sourceNodeId} not found`);
+            }
+    
+            const descendants = await this.getAllDescendants(sourceNodeId);
+            const parentIdMap = new Map();
+            parentIdMap.set(sourceNodeId, newParentId);
+
+            for (const descendant of descendants) {
+                const oldParentId = descendant.parent_id;
+                if (parentIdMap.has(oldParentId)) {
+                    parentIdMap.set(descendant.id, parentIdMap.get(oldParentId));
+                }
+            }
+            
+            const update = [];
+            
+
+            const updateSourceSql = `UPDATE nodes SET parent_id = ? WHERE id = ?`;
+            update.push(dbConnection.run(updateSourceSql, [newParentId, sourceNodeId]));
+            
+            for (const descendant of descendants) {
+                const newParentIdForDescendant = parentIdMap.get(descendant.id);
+                if (newParentIdForDescendant !== undefined) {
+                    const updateDescendantSql = `UPDATE nodes SET parent_id = ? WHERE id = ?`;
+                    update.push(dbConnection.run(updateDescendantSql, [newParentIdForDescendant, descendant.id]));
+                }
+            }
+            
+
+            await Promise.all(update);
+            await dbConnection.commitTransaction();
+            return await this.getNodeById(sourceNodeId);
+            
+        } catch (error) {
+            await dbConnection.rollbackTransaction();
+            throw new Error(`Failed to move node and subtree: ${error.message}`);
+        }
+    }
 }
 
 module.exports = new TreeQueries();
